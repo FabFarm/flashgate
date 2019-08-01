@@ -107,7 +107,7 @@ float derivative(struct stream f, struct stream x)    {
 }
 
 //function to find peak in signal
-struct fpeak_return fpeak(struct fpeak_return input, float signal)    { // return counter, Flag
+struct fpeak_return fpeak(struct fpeak_return input, float signal)    {
     input.flag = false;
     time_t peaktime;
     //find peak
