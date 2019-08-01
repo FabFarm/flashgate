@@ -12,17 +12,49 @@
 #include <time.h>
 #include <math.h>
 
+
+//global variables
+double pheight = 0.9; //min peak height 0.9 for test signal
+
+//struct for streaming data
 struct stream {
     
     float val[10];
     int tail = 0;
 };
 
-struct stream vdataq;
-struct stream v_medq;
+//used streams
+struct stream vdataq; //voltage signal
+struct stream v_medq; //smoothed voltage signal
 struct stream timeq;
-struct stream dvdtq;
+struct stream dvdtq; //derivative of smoothed voltage signal
+struct stream dvdt_meanq; //smoothed derivative
 
+//struct for find peak function return
+struct fpeak_return {
+    bool flag = false;
+    int counter = 0;
+    struct stream poldq; //old peaks stream
+    struct stream ptimeq; //peak times
+    float value = 0; //only for checking
+};
+//returns used
+struct fpeak_return high; //for high peaks
+struct fpeak_return low; //for low peaks
+
+
+//function to find maximum
+float max(float array[], int n) {
+    float max = 0;
+    for (int i = 0; i < n; i++) {
+        if (*(array+i) > max) {
+            max = *(array+i);
+        }
+    }
+    return max;
+}
+
+//function for adding value into datastream
 struct stream streaming(struct stream dataq, float value)  {
     // adds data from stream into a ring buffer (kind of)
     // only 10 elements are stored with circular index
@@ -31,7 +63,8 @@ struct stream streaming(struct stream dataq, float value)  {
     return dataq;
 }
 
-float med(float array[], int n)   {
+//smooth signal with med filter
+float med(float array[], int n)   { //sign seems to be lost, needs editing!!!
     float mean = 0;
     for (int i = 0; i<n; i++) {
         mean = mean + *(array+i);
@@ -50,7 +83,7 @@ void readLast(struct stream dataq, float arr[], int ar_length) {
             arr[i] = dataq.val[10+(dataq.tail-(i+1))]; // do the wrap araound because of ring buffer
         }
     }
-    return; //return is a pointer, maybe there is a better way?
+    return;
 }
 
 // basic numeric derivative of signal
@@ -73,6 +106,34 @@ float derivative(struct stream f, struct stream x)    {
     else return (deltaf/deltat);
 }
 
+//function to find peak in signal
+struct fpeak_return fpeak(struct fpeak_return input, float signal)    { // return counter, Flag
+    input.flag = false;
+    time_t peaktime;
+    //find peak
+    if (signal > max(input.poldq.val, 10) && signal > pheight) {
+        input.poldq = streaming(input.poldq, signal);
+        input.counter = 1;
+    }
+    else    {
+        //no new peak?
+        input.counter++;
+    }
+    //when no new peak in 4 steps set peak
+    if (input.counter == 4) {
+        input.value = max(input.poldq.val, 10);
+        input.flag = true;
+        peaktime = clock();
+        input.ptimeq = streaming(input.ptimeq, (float) peaktime); //only time needed for code recognition
+        //reset for new search
+        for (int i = 0; i < 10; i++) {
+            input.poldq.val[i] = 0;
+        }
+        input.poldq.tail = 0;
+    }
+    return input;
+}
+
 //time delay function
 void delay(int milliseconds)    {
     long pause;
@@ -84,6 +145,7 @@ void delay(int milliseconds)    {
         now = clock();
 }
 
+
 int main(int argc, const char * argv[]) {
     //initialize some variables
     double t = 0; //fake time
@@ -91,7 +153,11 @@ int main(int argc, const char * argv[]) {
     double f = 1; //2*3.1415/5; //frequency
     
     float v_mean;
+    float dvdt_mean;
     float dvdt;
+    
+    float lastdvdt[3];
+    float lastv[5];
     double v;
     
     //for noisy signal generation
@@ -111,8 +177,9 @@ int main(int argc, const char * argv[]) {
         //save to data stream
         vdataq = streaming(vdataq,v);
         
-        //selfmade med filter (mean value) - smoothe signal!
-        float lastv[5];
+        /*Signal processing*/
+        
+        //selfmade med filter (mean value) - smooth signal!
         readLast(vdataq,lastv,5);
         v_mean = med(lastv, 5);
         
@@ -128,6 +195,16 @@ int main(int argc, const char * argv[]) {
         dvdt = derivative(v_medq,timeq);
         // write to buffer
         dvdtq = streaming(dvdtq, dvdt);
+        //selfmade med filter (mean value) - smoothe derivative!
+        readLast(dvdtq,lastdvdt,3);
+        dvdt_mean = med(lastdvdt, 3);
+        
+        //find peaks
+        high = fpeak(high, dvdt_mean);
+        low = fpeak(low, -dvdt_mean);
+        
+        /*code recognition*/
+        //...
         
         //print for checking
         printf("Data queue: ");
@@ -144,11 +221,17 @@ int main(int argc, const char * argv[]) {
             printf("\t");
         }
         printf("newest to oldest\n");
-        printf("Derivative of smoothed signal: %.2f",dvdt);
-        printf("\n\n");
+        printf("Derivative of smoothed signal: %.2f\n",dvdt_mean);
+        if (high.flag && high.value > 0) {
+            printf("High peak found at: %.2f",high.value); //this will be delayed!
+                   }
+        if (low.flag && low.value < 0) {
+            printf("Low peak found at %.2f",-low.value); //this will be delayed!
+        }
+        printf("\nedit medfilter!!\n");
+        
         //timedelay!
         delay((int)(1/fs));
         }
     return 0;
     }
-
