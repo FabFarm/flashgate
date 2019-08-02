@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-
+#include "/Applications/MATLAB_R2018b.app/extern/include/mat.h"
 
 //global variables
 double pheight = 0.9; //min peak height 0.9 for test signal
@@ -26,7 +26,8 @@ struct stream {
 //used streams
 struct stream vdataq; //voltage signal
 struct stream v_medq; //smoothed voltage signal
-struct stream timeq;
+struct stream timeq; //evaluation time
+struct stream cTimesq; //code signal times
 struct stream dvdtq; //derivative of smoothed voltage signal
 struct stream dvdt_meanq; //smoothed derivative
 
@@ -52,6 +53,17 @@ float max(float array[], int n) {
         }
     }
     return max;
+}
+
+//function to find minimum
+float min(float array[], int n) {
+    float min = array[0];
+    for (int i = 1; i < n; i++) {
+        if (*(array+i) < min) {
+            min = *(array+i);
+        }
+    }
+    return min;
 }
 
 //function for adding value into datastream
@@ -119,8 +131,8 @@ struct fpeak_return fpeak(struct fpeak_return input, float signal)    {
         //no new peak?
         input.counter++;
     }
-    //when no new peak in 4 steps set peak
-    if (input.counter == 4) {
+    //when no new peak in 7 steps set peak
+    if (input.counter == 7) {
         input.value = max(input.poldq.val, 10);
         input.flag = true;
         peaktime = clock();
@@ -132,6 +144,40 @@ struct fpeak_return fpeak(struct fpeak_return input, float signal)    {
         input.poldq.tail = 0;
     }
     return input;
+}
+
+//code recognition function
+bool codeRecognition(struct stream time, bool code[], int n)   {
+    // code means short signal -> true, long signal -> false
+    // n defines length of code
+    bool codeFlag = false;
+    float last[n];
+    readLast(time, last, n);
+    
+    //set short/long definition
+    double shortmin = min(last,n)*0.75;
+    double shortmax = min(last,n)*1.25;
+
+    double longmin = max(last,n)*0.75;
+    double longmax = max(last,n)*1.25;
+    
+    //compare last n signals to code
+    for (int i = 0; i<n; i++) {
+        if (last[n-(i+1)] >= shortmin && last[n-(i+1)] <= shortmax && last[n-(i+1)] >0 && code[i]) {
+            //n-(i+1) because of different order last/code
+            //code demands short and signal is short
+            codeFlag = true;
+        }
+        else if(last[n-(i+1)] >= longmin && last[n-(i+1)] <= longmax && !code[i])   {
+            //code demands long and signal is long
+            codeFlag = true;
+        }
+        else {
+            //any other case
+            codeFlag = false;
+        }
+    }
+    return codeFlag;
 }
 
 //time delay function
@@ -151,25 +197,71 @@ int main(int argc, const char * argv[]) {
     double t = 0; //fake time
     double fs = 0.01; //steptime
     double f = 1; //2*3.1415/5; //frequency
+    double v;
     
     float v_mean;
     float dvdt_mean;
     float dvdt;
-    
+
     float lastdvdt[3];
     float lastv[5];
-    double v;
+    
+    bool cFlag = false;
+    bool code[3] = {true, true, false}; //change also code size n in codeRec function call
+    bool openGate = false;
+    
+    time_T start = 0;
+    time_T end = 0;
+    time_T now = 0;
     
     //for noisy signal generation
     time_t trand;
     /* Intializes random number generator */
     srand((unsigned) time(&trand));
     
+    // try to test with recorded signal
+    /* read recorded signal from matlab file
+    MATFile *pmat;
+    const char* name=NULL;
+    mxArray *pa;
+    
+    // open mat file and read it's content
+    pmat = matOpen("day_car1.mat", "r");
+    if (pmat == NULL)
+    {
+        printf("Error Opening File: \"%s\"\n", argv[1]);
+    }
+    
+    // Read in each array.
+    pa = matGetNextVariable(pmat, &name);
+    while (pa!=NULL)
+    {
+        //Diagnose array pa
+     
+        printf("\nArray %s has %zu dimensions.", name, mxGetNumberOfDimensions(pa));
+        
+        //print matrix elements
+        //printf("\ndata %d",pa);
+        
+        //get next variable
+        pa = matGetNextVariable(pmat,&name);
+        
+        //printf("\ndata %d",pa);
+        //destroy allocated matrix
+        mxDestroyArray(pa);
+    }
+    
+    matClose(pmat);
+    */
+
+    
+    
+    
     //the while resembles the arduino loop!!
     while (t <= 5) {
         
         //Read current voltage value
-        v = sin(f*t)+0.001*(rand() % 100);
+        v = sin(f*t)+0.0001*(rand() % 100);
         t = t+fs;
         printf("Signal: %lf volts \n",v);
         printf("Dataq index: %i \n",vdataq.tail+1);
@@ -204,7 +296,32 @@ int main(int argc, const char * argv[]) {
         low = fpeak(low, -dvdt_mean);
         
         /*code recognition*/
-        //...
+        now = clock();
+        if (high.flag) {
+            start = clock();
+            //led digital write high
+        }
+        else if (low.flag) {
+            end = clock();
+            cTimesq = streaming(cTimesq, (float) ((end-start) / CLOCKS_PER_SEC));
+            //led digital write low
+        }
+        else if ((float) ((now-start) / CLOCKS_PER_SEC))  {
+            start = 0;
+            end = 0;
+        }
+        cFlag = codeRecognition(cTimesq, code, 3);
+        
+        if (cFlag) {
+            while (openGate) { //also time counter to avoid arduino getting stuck !openGate && runtime < maxRuntime
+                //led green
+                delay(3000);
+                openGate = true;
+                // runtime = clock();
+            }
+            openGate = false;
+            cFlag = false;
+        }
         
         //print for checking
         printf("Data queue: ");
@@ -225,10 +342,9 @@ int main(int argc, const char * argv[]) {
         if (high.flag && high.value > 0) {
             printf("High peak found at: %.2f",high.value); //this will be delayed!
                    }
-        if (low.flag && low.value < 0) {
+        if (low.flag && low.value > 0) {
             printf("Low peak found at %.2f",-low.value); //this will be delayed!
         }
-        printf("\nedit medfilter!!\n");
         
         //timedelay!
         delay((int)(1/fs));
