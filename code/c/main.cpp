@@ -1,10 +1,3 @@
-//
-//  main.cpp
-//  gateOpener
-//
-//  Created by Philip Carstensen on 30.07.19.
-//  Copyright © 2019 Philip Carstensen. All rights reserved.
-//
 
 #include <iostream>
 #include <stdio.h>
