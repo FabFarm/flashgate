@@ -6,28 +6,29 @@
 //global variables
 //initialize some variables
 
-    float v;
-    
-    float v_mean;
-    float dvdt_mean;
-    float dvdt;
+float v;
 
-    float lastdvdt[4];
-    float lastv[7];
-    
-    bool cFlag = false;
-    bool code[3] = {true, true, false}; //change also code size n in codeRec function call
-    bool openGate = false;
-    double pheight = 2; //min peak height 0.9 for test signal
+float v_mean;
+float dvdt_mean;
+float dvdt;
 
-    //time variables
-    long start = 0;
-    long fin = 0;
-    long now = 0;
-    long runstart = 0;
-    long runtime = 0 ;
-    long peaktime = 0;
-    long t = millis();
+float lastdvdt[4];
+float lastv[7];
+
+bool cFlag = false;
+bool code[3] = {true, true, false}; //change also code size n in codeRec function call
+bool openGate = false;
+double pheight = 2; //min peak height 0.9 for test signal
+
+//time variables
+long start = 0;
+long fin = 0;
+long now = 0;
+long runstart = 0;
+long runtime = 0 ;
+long peaktime = 0;
+long t = millis();
+
 //struct for streaming data
 struct stream {
     
