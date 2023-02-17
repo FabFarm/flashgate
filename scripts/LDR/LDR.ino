@@ -1,21 +1,20 @@
 /*
 Author: Erientes
 
-GPIO pin 34 == A6
+Simply outputs analog readout from pin 34 (which is A6) to serial.
+In the Arduino IDE you can see the live plot by opening the Serial Plotter.
+
 */
 
 #define PIN_LDR 34
-#define PIN_LED 32
 
 int val = 0;
 
 void setup() {
   Serial.begin(115200);
-  pinMode(PIN_LED, OUTPUT);
 }
 
 void loop() {
-//  digitalWrite(PIN_LED, HIGH);
   Serial.println(analogRead(PIN_LDR));
   delay(10);
 }
