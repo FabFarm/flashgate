@@ -2,14 +2,27 @@
 #include <driver/adc.h>
 #include <soc/adc_channel.h>
 
-#define NR_SAMPLES_RB_ADC 5
+#define NR_SAMPLES_RB_ADC 100
+#define NR_SAMPLES_SMA 10
 #define nr_of_elements_of(x) (sizeof(x) / sizeof((x)[0]))
 
+// VARIABLES =================================================================
+
 int step_adc_last;
-//int ring_buffer_adc[NR_SAMPLES_RB_ADC];
-int ring_buffer_adc[] = {1,2,3,4,5};
 int step_adc_filt;
-int pointer_ring_buffer = 0;
+int ring_buffer_adc[NR_SAMPLES_RB_ADC];
+int pointer_rb_adc = 0;
+int ring_buffer_sma[NR_SAMPLES_SMA];
+int pointer_rb_sma = 0;
+int line_stdev_plus;
+int line_stdev_min;
+
+struct noise_struct {
+  int mean;
+  float stdev;
+  int threshold;
+};
+noise_struct noise_profile = {0,0.0, 0};
 
 // SETUP + LOOP ==============================================================
 
@@ -28,22 +41,24 @@ void setup() {
     update_ring_buffer_adc();
   }
 
-
-  int sum_test = sum(ring_buffer_adc, nr_of_elements_of(ring_buffer_adc));
-  int mean_test = mean(ring_buffer_adc, nr_of_elements_of(ring_buffer_adc));
-  float std_test = stdev(ring_buffer_adc, nr_of_elements_of(ring_buffer_adc));
-  
-  Serial.println((String) mean_test + " " + (String) sum_test + " " + (String) std_test );
+//  int sum_test = sum(ring_buffer_adc, nr_of_elements_of(ring_buffer_adc));
+  noise_profile.mean = mean(ring_buffer_adc, nr_of_elements_of(ring_buffer_adc));
+  noise_profile.stdev = stdev(ring_buffer_adc, nr_of_elements_of(ring_buffer_adc));
 }
 
 void loop() {  
   step_adc_last = adc1_get_raw(ADC1_GPIO34_CHANNEL);  
   update_ring_buffer_adc();
-  Serial.println(step_adc_last - mean(ring_buffer_adc, nr_of_elements_of(ring_buffer_adc)));
 
-//  apply_sma_filter();
-//  Serial.println( (String) step_adc_filt + "," + (String) step_adc_last);
-  delay(5);
+  apply_sma_filter();
+  update_noise_profile();
+
+  line_stdev_plus = noise_profile.mean + (int) noise_profile.stdev;
+  line_stdev_min = noise_profile.mean - noise_profile.stdev;
+
+  Serial.println( (String) noise_profile.mean + "," + (String) line_stdev_plus + "," + (String) line_stdev_min);
+
+  delay(100);
 }
 
 // FUNCTIONS ==============================================================
@@ -74,16 +89,23 @@ int mean(int arr[], size_t arr_size){
 
 void apply_sma_filter(){
   float val_tmp = 0;
+  int i_rb;
 
-  for(int i = 0; i < NR_SAMPLES_RB_ADC; i++){
-    val_tmp += ((float) 1/NR_SAMPLES_RB_ADC) * (float) ring_buffer_adc[i];
+  for(int i = 0; i < NR_SAMPLES_SMA; i++){
+    i_rb = NR_SAMPLES_RB_ADC - i;
+    val_tmp += ((float) 1/NR_SAMPLES_SMA) * (float) ring_buffer_adc[i_rb];
   }
   step_adc_filt = (int) val_tmp;
 }
 
+void update_noise_profile(){
+  noise_profile.mean = mean(ring_buffer_adc, NR_SAMPLES_RB_ADC);
+  noise_profile.stdev = stdev(ring_buffer_adc, NR_SAMPLES_RB_ADC);
+}
+
 void update_ring_buffer_adc(){
-  ring_buffer_adc[pointer_ring_buffer] = step_adc_last;
-  pointer_ring_buffer = (pointer_ring_buffer + 1) % NR_SAMPLES_RB_ADC;
+  ring_buffer_adc[pointer_rb_adc] = step_adc_last;
+  pointer_rb_adc = (pointer_rb_adc + 1) % NR_SAMPLES_RB_ADC;
 }
 
 void print_ring_buffer(){
