@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../../.."
+		},
+		{
+			"name": "flash-gate",
+			"path": "../../../flash-gate"
+		},
+		{
+			"name": "firmware",
+			"path": "../.."
+		}
+	],
+	"settings": {}
+}

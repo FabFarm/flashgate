@@ -43,6 +43,7 @@ function uploadFlashPattern() {
     var pattern = morseCodeDisplay.textContent.split('').map(function (symbol) {
         return symbol === '-'; // True for long flash (dash), False for short flash (dot)
     });
+    window.alert('Pattern uploaded: ' + pattern);
     console.log(pattern); // For demonstration, replace with actual upload logic
 }
 

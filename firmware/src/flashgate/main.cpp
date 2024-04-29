@@ -6,10 +6,11 @@
 
 
 #define LIGHT_SENSOR_PIN 34 // ESP32 pin GIOP36 (ADC0)
-#define GATE_RELAY_PIN 21 
-#define N 10
-#define SHORT_PULSE_WINDOW 4
-#define LONG_PULSE_WINDOW 6
+#define EXTERNAL_LED 21
+#define INTERNAL_LED 2 
+#define N 15
+#define SHORT_PULSE_WINDOW 6
+#define LONG_PULSE_WINDOW 9
 #define THRESHOLD 300.0
 
 uint8_t byte_index = 0;
@@ -42,11 +43,11 @@ int detectPulses(int size) {
         avg2 += history[i];
     }
     avg2 /= double(size);
-    Serial.printf("Avg1:%.3f\n", avg1);
-    Serial.printf("Avg2:%.3f\n", avg2);
+    // Serial.printf("Avg1:%.3f\n", avg1);
+    // Serial.printf("Avg2:%.3f\n", avg2);
     
     double diff = avg1 - avg2;
-    Serial.printf("Diff:%.3f\n", diff);
+    // Serial.printf("Diff:%.3f\n", diff);
 
     // Compare averages
     if (diff >=THRESHOLD)
@@ -60,10 +61,16 @@ int detectPulses(int size) {
 
 void setup() {
   // initialize serial communication at 9600 bits per second:
-  pinMode(GATE_RELAY_PIN,OUTPUT);
-  pinMode(LIGHT_SENSOR_PIN,INPUT);
   Serial.begin(115200);
-  digitalWrite(GATE_RELAY_PIN, LOW);
+  setupFileSystem();
+  setupWifi();
+  setupHttpServer();
+  pinMode(EXTERNAL_LED,OUTPUT);
+  pinMode(INTERNAL_LED,OUTPUT);
+  pinMode(LIGHT_SENSOR_PIN,INPUT);
+  digitalWrite(EXTERNAL_LED, LOW);
+  digitalWrite(INTERNAL_LED, LOW);
+
 }
 
 void loop() {
@@ -71,21 +78,29 @@ void loop() {
   int sensorData = analogRead(LIGHT_SENSOR_PIN);
   uint16_t sample = (uint16_t) sensorData;
   unsigned long startTime = millis();
+  bool longPulse = false;
 
   create_samples (sample) ;
 
   Serial.printf("Raw:%d\n", sensorData);
-  
+  // if (detectPulses(LONG_PULSE_WINDOW)==1)
+  // {
+  //   longPulse = true;
+  //   Serial.printf("Long Pulse Detected\n");
+  //   digitalWrite(INTERNAL_LED, HIGH); // turn on LED
+  //   while (millis() - startTime < 100) {
+  //   }
+  // }
+  // else 
   if (detectPulses(SHORT_PULSE_WINDOW)==1){
-    // Serial.println("HIGH");
-    Serial.printf("Gate Open");
-    digitalWrite(GATE_RELAY_PIN, HIGH); // turn on LED
+    Serial.printf("Short Pulse Detected\n");
+    digitalWrite(EXTERNAL_LED, HIGH); // turn on LED
     while (millis() - startTime < 100) {
-    // Do nothing, just wait
     }
   }
   else {
-    digitalWrite(GATE_RELAY_PIN, LOW);  // turn off LED
+    digitalWrite(EXTERNAL_LED, LOW);  // turn off LED
+    digitalWrite(INTERNAL_LED, LOW); 
   }
   
   

@@ -1,6 +1,6 @@
 #include "WifiUtils.h"
 
-const char *ssid = "fabfarm_ele_container";
+const char *ssid = "fabfarm";
 const char *password = "imakestuff";
 
 void setupWifi()
