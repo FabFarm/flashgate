@@ -36,16 +36,32 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 var uploadPatternButton = document.querySelector('.upload-pattern'); // New button reference
+uploadPatternButton.addEventListener('click', uploadFlashPattern);
 
 // Function to upload the flash pattern
 function uploadFlashPattern() {
     var morseCodeDisplay = document.getElementById('morse-code-display');
-    var pattern = morseCodeDisplay.textContent.split('').map(function (symbol) {
-        return symbol === '-'; // True for long flash (dash), False for short flash (dot)
+    var flash_code_pattern = morseCodeDisplay.textContent.split('').map(function (symbol) {
+        return symbol === '-' ? true : false; // True for long flash (dash), False for short flash (dot)
     });
-    window.alert('Pattern uploaded: ' + pattern);
-    console.log(pattern); // For demonstration, replace with actual upload logic
+
+    uploadFlashCodePattern(flash_code_pattern);
 }
 
-// Event listener for the new button
-uploadPatternButton.addEventListener('click', uploadFlashPattern);
+function uploadFlashCodePattern(flash_code_pattern) {
+    fetch('/flash_code_pattern', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ flash_code_pattern })
+    })
+        .then(response => response.json())
+        .then(data => {
+            window.alert('Pattern uploaded: ' + data.flash_code_pattern);
+            console.log(data.flash_code_pattern); // For demonstration, replace with actual handling logic
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
