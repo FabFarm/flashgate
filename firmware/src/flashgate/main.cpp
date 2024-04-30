@@ -21,7 +21,7 @@ void create_samples(uint16_t sample)
   uint16_t previous = history[byte_index]; // get oldest from buffer
   history[byte_index] = sample;            // insert newest
   byte_index++;                            // move pointer circularly
-                                           // use milis function instead of delay(way )
+
   if (byte_index >= N)
   {
     byte_index = 0;
@@ -79,7 +79,7 @@ void loop()
 }
 
 void read_and_detect_pulse()
-{
+{ 
   // reads the input on analog pin (value between 0 and 4095)
   int sensorData = analogRead(LIGHT_SENSOR_PIN);
   uint16_t sample = (uint16_t)sensorData;
@@ -107,4 +107,30 @@ void read_and_detect_pulse()
   {
     // Do nothing, just wait
   }
+
+  // Probably need a state machine to handle the flash code pattern
+  // See https://forum.arduino.cc/t/how-to-detect-a-pattern/410125/4 
+  // and https://github.com/jrullan/StateMachine
+
+  // bool codeMatched = false;
+  // bool codeIndex = 0; 
+  // if (!codeMatched && codeIndex < flashCodePattern.size())
+  //     {
+  //       if ((flashCodePattern[codeIndex] && detectPulses(LONG_PULSE_WINDOW) == 1) ||
+  //           (flashCodePattern[codeIndex] && detectPulses(SHORT_PULSE_WINDOW) == 1))
+  //       {
+  //         codeIndex++;
+  //         if (codeIndex == flashCodePattern.size())
+  //         {
+  //           codeMatched = true;
+  //           Serial.println("Code Matched!");
+  //           // Do something when code is matched
+  //         }
+  //       }
+  //       else
+  //       {
+  //         codeIndex = 0; // reset code index if code doesn't match
+  //       }
+  //     }
+
 }
